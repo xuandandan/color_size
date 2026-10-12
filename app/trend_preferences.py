@@ -158,15 +158,20 @@ class TrendPreferenceRuntime:
     def _load_bundle(self) -> None:
         if not self.bundle_path.exists():
             return
-        with open(self.bundle_path, "rb") as f:
-            data = pickle.load(f)
-        self.art.scaler = data.get("scaler")
-        self.art.kmeans = data.get("kmeans")
-        self.art.nn = data.get("nn")
-        self.art.labs = data.get("labs")
-        self.art.meta_rows = data.get("meta_rows", [])
-        if self.meta_path.exists():
-            self.art.train_meta = json.loads(self.meta_path.read_text(encoding="utf-8"))
+        try:
+            with open(self.bundle_path, "rb") as f:
+                data = pickle.load(f)
+            self.art.scaler = data.get("scaler")
+            self.art.kmeans = data.get("kmeans")
+            self.art.nn = data.get("nn")
+            self.art.labs = data.get("labs")
+            self.art.meta_rows = data.get("meta_rows", [])
+            if self.meta_path.exists():
+                self.art.train_meta = json.loads(self.meta_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            # 旧 pickle 与当前 sklearn 不兼容时跳过，服务仍可启动
+            self.art = TrendArtifacts()
+            self.art.train_meta = {"load_error": str(exc)}
 
     def dataset_status(self) -> dict[str, Any]:
         csv_p = self._csv_path()

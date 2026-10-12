@@ -84,13 +84,23 @@ class MLRuntime:
         return self.perf_model is not None and self.rank_model is not None
 
     def load(self) -> None:
-        if self.perf_path.exists() and self.rank_path.exists():
+        if not (self.perf_path.exists() and self.rank_path.exists()):
+            return
+        try:
             with open(self.perf_path, "rb") as f:
                 self.perf_model = pickle.load(f)
             with open(self.rank_path, "rb") as f:
                 self.rank_model = pickle.load(f)
             if self.meta_path.exists():
                 self.metadata = json.loads(self.meta_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            # sklearn 版本与旧 pickle 不兼容时（如 _loss）不阻断服务启动
+            self.perf_model = None
+            self.rank_model = None
+            self.metadata = {
+                "load_error": str(exc),
+                "hint": "retrain via POST /expert/train or pin scikit-learn to the training version",
+            }
 
     def train(self, min_samples: int = 20) -> dict:
         x_rows: list[list[float]] = []

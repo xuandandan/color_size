@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+httpx
+pillow
+python-multipart
+openpyxl
+reportlab
+numpy
+scikit-image
+scikit-learn
+pymysql

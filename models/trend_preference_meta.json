@@ -1,0 +1,7 @@
+{
+  "trained_at": "2026-05-12T15:09:10.453344",
+  "sample_count": 95,
+  "n_clusters": 15,
+  "data_root": "D:\\color_size\\data\\pantone_fashion_trends",
+  "model_version": "trend_v20260512150910"
+}

@@ -1,0 +1,36 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Env & secrets
+.env
+.env.local
+
+# Local DB (Render 会重新初始化)
+paint_system.db
+*.db-journal
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local test assets & large media (不上传)
+blue/
+red/
+app/*.jpg
+app/*.jpeg
+app/*.png
+app/*.webp
+app/*.jfif
+*.mp4
+*.mov
+5.12录像
+*录像*
+*.docx

@@ -1,0 +1,2381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智能调色系统</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; max-width: 1100px; }
+    textarea, input { width: 100%; margin: 6px 0 12px; padding: 8px; box-sizing: border-box; }
+    button { padding: 8px 14px; margin-right: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    pre { background: #f5f5f5; border: 1px solid #ddd; padding: 12px; white-space: pre-wrap; }
+    .card { border: 1px solid #ddd; padding: 12px; background: #fafafa; margin-top: 12px; }
+    .swatch { width: 120px; height: 40px; border: 1px solid #999; margin: 8px 0; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+    .muted { color: #666; }
+    .status-line { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #9e9e9e; }
+    .status-dot.online { background: #2e7d32; }
+    .status-dot.offline { background: #c62828; }
+    .status-dot.warn { background: #f9a825; }
+
+    /* Login panel — centered label + input rows */
+    .login-wrap {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin: 8px 0 24px;
+    }
+    .login-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 32px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      max-width: 480px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .login-intro {
+      text-align: center;
+      margin: 0 0 20px;
+      font-size: 15px;
+    }
+    .login-form {
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .login-row label {
+      flex: 0 0 132px;
+      text-align: right;
+      margin: 0;
+      font-size: 14px;
+    }
+    .login-panel .login-row input {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto;
+      margin: 0;
+      padding: 7px 10px;
+      border: 1px solid #555;
+      background: #fff;
+      box-sizing: border-box;
+    }
+    .login-actions {
+      display: flex;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .login-actions button {
+      background: #e0e0e0;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 8px 22px;
+      font-size: 14px;
+      cursor: pointer;
+      margin: 0;
+    }
+    .login-actions button:hover {
+      background: #d4d4d4;
+    }
+    .login-token {
+      margin-top: 18px;
+      font-size: 13px;
+      text-align: center;
+      word-break: break-all;
+    }
+
+    /* —— 向导式桌面布局 —— */
+    html { height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100%;
+      max-width: none;
+      background: #ece9d8;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 13px;
+      color: #222;
+    }
+    .app-frame {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 1280px;
+      margin: 0 auto;
+      background: #f0f0f0;
+      border-left: 1px solid #b0b0b0;
+      border-right: 1px solid #b0b0b0;
+      box-shadow: 0 0 20px rgba(0,0,0,0.08);
+    }
+    .top-bar {
+      background: linear-gradient(180deg, #fafafa 0%, #ececec 100%);
+      border-bottom: 1px solid #a0a0a0;
+      flex-shrink: 0;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px;
+      align-items: center;
+    }
+    .toolbar button {
+      padding: 6px 12px;
+      font-size: 12px;
+      margin: 0;
+      background: #e8e8e8;
+      border: 1px solid #7a7a7a;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .toolbar button:hover { background: #dde8f5; }
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      padding: 0 8px 0;
+      background: #dcdcdc;
+      border-top: 1px solid #fff;
+    }
+    .tab-bar .tab {
+      padding: 6px 16px;
+      background: #bfcddb;
+      border: 1px solid #808080;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      font-size: 12px;
+      margin-top: 2px;
+      cursor: default;
+    }
+    .tab-bar .tab.active {
+      background: #f0f0f0;
+      font-weight: 600;
+      margin-bottom: -1px;
+      padding-bottom: 7px;
+    }
+    .wizard-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #f0f0f0;
+    }
+    .wizard-step-title {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      border-bottom: 1px solid #c0c0c0;
+      background: #e8e8e8;
+    }
+    .wizard-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px 14px 220px;
+      position: relative;
+    }
+    .wizard-step {
+      display: none;
+      animation: wizardStepIn 0.28s ease-out;
+    }
+    .wizard-step.active { display: block; }
+    .wizard-login {
+      display: none;
+      animation: wizardStepIn 0.28s ease-out;
+    }
+    .wizard-login.active { display: block; }
+    @keyframes wizardStepIn {
+      from { opacity: 0; transform: translateX(14px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .wizard-footer {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 1280px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #e2e2e2 0%, #d0d0d0 100%);
+      border: 1px solid #909090;
+      border-radius: 2px;
+      z-index: 50;
+      /* 避免挡住下方按钮：空白区域点击穿透到页面内容 */
+      pointer-events: none;
+    }
+    .wizard-footer .footer-reset {
+      padding: 6px 14px;
+      margin: 0;
+      background: #e8e8e8;
+      border: 1px solid #555;
+      border-radius: 3px;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .wizard-footer .progress-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      pointer-events: none;
+    }
+    .progress-track {
+      width: 100%;
+      max-width: 360px;
+      height: 10px;
+      background: #fff;
+      border: 1px solid #888;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 25%;
+      background: linear-gradient(180deg, #6cb0ff 0%, #2a7fff 100%);
+      transition: width 0.35s ease;
+    }
+    .progress-label { font-size: 12px; color: #333; }
+    .wizard-footer .nav-btn {
+      padding: 6px 18px;
+      margin: 0;
+      background: #e8e8e8;
+      border: 1px solid #555;
+      border-radius: 3px;
+      cursor: pointer;
+      min-width: 72px;
+    }
+    .wizard-footer .nav-btn.primary {
+      background: linear-gradient(180deg, #ffe8e8 0%, #ffb0b0 100%);
+      border-color: #c03030;
+      font-weight: 600;
+    }
+    .wizard-footer .nav-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .split-target {
+      border: 1px solid #a0a0a0;
+      background: #fff;
+      min-height: 280px;
+    }
+    .split-target .table-pane {
+      overflow: auto;
+      max-height: 420px;
+    }
+    .target-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .target-toolbar input[type="text"] {
+      width: 200px;
+      margin: 0;
+      padding: 5px 8px;
+    }
+    .target-toolbar button { margin: 0; padding: 5px 12px; font-size: 12px; }
+    .data-grid {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .data-grid th, .data-grid td {
+      border: 1px solid #b0b0b0;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    .data-grid th {
+      background: linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%);
+      font-weight: 600;
+    }
+    .data-grid tr:nth-child(even) td { background: #f9f9f9; }
+    .swatch-cell {
+      width: 36px;
+      height: 22px;
+      border: 1px solid #666;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .step3-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(168px, 20vw, 240px);
+      gap: 14px;
+      align-items: start;
+    }
+    .step3-quick-card {
+      position: sticky;
+      top: 8px;
+    }
+    .step3-quick-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .step3-quick-actions button {
+      width: 100%;
+      margin: 0;
+      box-sizing: border-box;
+      text-align: center;
+      font-size: 12px;
+      padding: 6px 8px;
+      line-height: 1.25;
+      white-space: normal;
+    }
+    @media (max-width: 900px) {
+      .step3-grid { grid-template-columns: 1fr; }
+      .step3-quick-card { position: static; }
+    }
+    .step-card {
+      background: #fff;
+      border: 1px solid #b0b0b0;
+      padding: 12px;
+    }
+    .step-card h3 { margin-top: 0; font-size: 14px; }
+    .step3-subnav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 14px;
+      padding: 10px;
+      background: #ececec;
+      border: 1px solid #a8a8a8;
+      border-radius: 4px;
+    }
+    .step3-subnav .step3-tab {
+      padding: 6px 12px;
+      margin: 0;
+      font-size: 12px;
+      background: #f5f5f5;
+      border: 1px solid #888;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .step3-subnav .step3-tab:hover { background: #e3f2fd; }
+    .step3-subnav .step3-tab.active {
+      background: #1976d2;
+      color: #fff;
+      border-color: #0d47a1;
+      font-weight: 600;
+    }
+    .step3-subnav .step3-sub-arrow {
+      padding: 6px 14px;
+      margin: 0;
+      font-size: 12px;
+      background: #e0e0e0;
+      border: 1px solid #666;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .step3-subnav .step3-sub-arrow:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .step3-subnav .step3-sub-spacer { flex: 1; min-width: 8px; }
+    .step3-subpanel { display: none; animation: wizardStepIn 0.22s ease-out; }
+    .step3-subpanel.active { display: block; }
+    .step3-subpanel h3:first-of-type { margin-top: 0; }
+    .step3-form-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .step3-form-stack .step3-subheading {
+      margin: 18px 0 0;
+      font-size: 14px;
+      border-top: 1px solid #d8d8d8;
+      padding-top: 14px;
+    }
+    .step3-form-stack .step3-subheading:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+    .step3-btn-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .step3-btn-row--3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .step3-btn-row button {
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+      font-size: 12px;
+      padding: 7px 10px;
+      line-height: 1.25;
+    }
+    .step3-btn-row > button:only-child {
+      grid-column: 1 / -1;
+    }
+    .step3-rgb-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .step3-rgb-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0;
+    }
+    .step3-rgb-cell .step3-field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #444;
+    }
+    .step3-subpanel .step3-form-stack input:not([type="file"]),
+    .step3-subpanel .step3-form-stack select,
+    .step3-subpanel .step3-form-stack textarea {
+      margin: 0;
+      box-sizing: border-box;
+    }
+    .step3-subpanel .step3-form-stack input[type="file"] {
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 12px;
+    }
+    .step3-roi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+    .step3-roi-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0;
+      font-size: 12px;
+      color: #444;
+    }
+    .step3-roi-grid label input {
+      width: 100%;
+      margin: 0;
+    }
+    .step3-hint-box {
+      min-height: 2.5em;
+      margin: 0;
+      padding: 8px 10px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .step3-nav-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .step3-nav-footer--between {
+      justify-content: space-between;
+    }
+    /* 步骤 1：子页内容与底栏、顶栏与子页之间留白 */
+    #wizard-step-1 .step3-subnav {
+      margin-bottom: 16px;
+    }
+    #wizard-step-1 .step3-subpanel .step3-form-stack {
+      gap: 14px;
+      padding-bottom: 4px;
+    }
+    #wizard-step-1 > .step-card > .step3-nav-footer {
+      margin-top: 22px;
+      padding-top: 18px;
+      padding-bottom: 4px;
+      border-top: 1px solid #c8c8c8;
+      gap: 16px;
+      align-items: center;
+    }
+    #wizard-step-1 > .step-card > .step3-nav-footer .step3-sub-arrow {
+      padding: 8px 18px;
+      min-height: 36px;
+      box-sizing: border-box;
+    }
+    .step3-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    @media (max-width: 640px) {
+      .step3-btn-row--3 { grid-template-columns: 1fr; }
+      .step3-roi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .step3-metrics-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-frame">
+    <header class="top-bar">
+      <div class="toolbar">
+        <button type="button" onclick="saveApiBase(); checkApiHealth();">连接</button>
+        <button type="button" onclick="checkApiHealth();">刷新连接</button>
+        <button type="button" onclick="setWizardStep(1)">图像检测</button>
+        <button type="button" onclick="setWizardStep(2)">流行色偏好</button>
+        <button type="button" onclick="setWizardStep(3)">配色管理</button>
+        <button type="button" onclick="setWizardStep(4)">结果输出</button>
+      </div>
+      <div class="tab-bar">
+        <div class="tab active">智能配色向导</div>
+        <div class="tab">当前项目</div>
+      </div>
+    </header>
+
+    <main class="wizard-main">
+      <div class="wizard-body">
+
+        <section class="wizard-login active" id="wizard-login-panel">
+          <div class="wizard-step-title">连接与登录</div>
+          <p class="muted" style="margin:8px 0 12px;">默认账号：admin / admin123</p>
+  <div class="card">
+    <div><b>后端 API 地址</b>（前后端分离部署时可修改）</div>
+    <input id="apiBase" value="" placeholder="留空表示同源；也可填 http://127.0.0.1:8000" />
+    <button onclick="saveApiBase()">保存后端地址</button>
+    <div class="status-line">
+      <span id="apiStatusDot" class="status-dot"></span>
+      <span id="apiStatus" class="muted">正在检测后端连通性...</span>
+    </div>
+  </div>
+          <div class="login-wrap" style="margin-top:16px;">
+            <div class="login-panel">
+              <p class="login-intro">Please enter your username and password:</p>
+              <form class="login-form" action="#" onsubmit="event.preventDefault(); login();">
+                <div class="login-row">
+                  <label for="username">User Name:</label>
+                  <input id="username" type="text" value="admin" autocomplete="username" />
+                </div>
+                <div class="login-row">
+                  <label for="password">User Password:</label>
+                  <input id="password" type="password" value="admin123" autocomplete="current-password" />
+                </div>
+                <div class="login-actions">
+                  <button type="submit">Submit Now</button>
+                </div>
+              </form>
+              <div class="login-token">Token: <code id="tokenShow"></code></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="1" id="wizard-step-1">
+          <div class="wizard-step-title">步骤 1 / 4 — 图像与算法</div>
+          <div class="step3-grid">
+            <div class="step-card">
+              <div class="step3-subnav">
+                <button type="button" class="step3-tab active" data-imsub="0" onclick="setImageAlgoSub(0)">图像识别配色</button>
+                <button type="button" class="step3-tab" data-imsub="1" onclick="setImageAlgoSub(1)">配方专家编排</button>
+                <button type="button" class="step3-tab" data-imsub="2" onclick="setImageAlgoSub(2)">检测结果录入</button>
+                <button type="button" class="step3-tab" data-imsub="3" onclick="setImageAlgoSub(3)">手动新增配方</button>
+                <span class="step3-sub-spacer"></span>
+                <button type="button" class="step3-sub-arrow" id="imageAlgoSubPrev" onclick="imageAlgoSubPrev()">上一页</button>
+                <button type="button" class="step3-sub-arrow" id="imageAlgoSubNext" onclick="imageAlgoSubNext()">下一页</button>
+              </div>
+
+              <div class="step3-subpanel active" data-imsub="0">
+                <div class="step3-form-stack" style="margin-top:0">
+                  <h3 style="margin-top:0">图像识别配色</h3>
+                  <input id="carModel" value="User-Car" placeholder="车型 / 标识" />
+                  <input id="colorCode" value="AUTO" placeholder="颜色代码" />
+      <input id="imageInput" type="file" accept="image/*" />
+                  <div class="muted" style="font-size:12px;line-height:1.35;margin:0;"><b>ROI 取色</b>（相对整图 0～1；默认 0,0,1,1 为全图）</div>
+                  <div class="step3-roi-grid">
+                    <label>左<input id="visionRoiLeft" type="number" step="0.01" min="0" max="1" value="0" title="roi_left" /></label>
+                    <label>上<input id="visionRoiTop" type="number" step="0.01" min="0" max="1" value="0" /></label>
+                    <label>宽<input id="visionRoiWidth" type="number" step="0.01" min="0.01" max="1" value="1" /></label>
+                    <label>高<input id="visionRoiHeight" type="number" step="0.01" min="0.01" max="1" value="1" /></label>
+                  </div>
+                  <label for="rangeRatio" style="margin:0;font-size:12px;color:#444;">配方区间宽度（±比例）</label>
+      <select id="rangeRatio">
+        <option value="0.05">±5%</option>
+        <option value="0.1" selected>±10%</option>
+        <option value="0.15">±15%</option>
+      </select>
+                  <div class="step3-btn-row step3-btn-row--3">
+                    <button type="button" onclick="visionExtract()">图片提取颜色</button>
+                    <button type="button" onclick="visionRecommend()">图片自动推荐配方</button>
+                    <button type="button" onclick="downloadRecognizedImage()">下载系统识别图</button>
+                  </div>
+                  <h3 class="step3-subheading">色差可信度对比</h3>
+      <input id="targetImageInput" type="file" accept="image/*" />
+      <input id="predImageInput" type="file" accept="image/*" />
+                  <div class="step3-btn-row">
+                    <button type="button" onclick="compareMetrics()">对比两张图片指标</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="step3-subpanel" data-imsub="1">
+                <div class="step3-form-stack" style="margin-top:0">
+                  <h3 style="margin-top:0">配方专家编排</h3>
+                  <label for="expertTopK" style="margin:0;font-size:12px;color:#444;">推荐条数（Top K，5～10）</label>
+      <input id="expertTopK" type="number" value="5" min="5" max="10" />
+                  <label for="expertInput" style="margin:0;font-size:12px;color:#444;">目标与约束描述</label>
+      <textarea id="expertInput" rows="6">目标：附着力>=8，光泽>=85，耐冲击>=50，VOC<=120；要求支持量产且效率优先。</textarea>
+                  <div class="step3-btn-row">
+                    <button type="button" onclick="expertOrchestrate()">一键生成推荐与工艺</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="step3-subpanel" data-imsub="2">
+                <div class="step3-form-stack" style="margin-top:0">
+                  <h3 style="margin-top:0">检测结果录入（反馈学习）</h3>
+                  <label for="fbFormulaId" style="margin:0;font-size:12px;color:#444;">配方 ID</label>
+      <input id="fbFormulaId" value="f001" placeholder="配方ID，例如 f001" />
+                  <div class="step3-metrics-grid">
+      <input id="fbAdhesion" type="number" step="0.1" value="8.2" placeholder="附着力（级，越高越好）" />
+      <input id="fbGloss" type="number" step="0.1" value="86.5" placeholder="光泽（GU，越高越好）" />
+      <input id="fbImpact" type="number" step="0.1" value="52.0" placeholder="耐冲击（cm·kg，越高越好）" />
+      <input id="fbVoc" type="number" step="0.1" value="118.0" placeholder="VOC（g/L，越低越好）" />
+                  </div>
+                  <label for="fbAccepted" style="margin:0;font-size:12px;color:#444;">是否采用（true / false）</label>
+      <input id="fbAccepted" value="true" placeholder="是否采用：true / false" />
+                  <label for="fbComment" style="margin:0;font-size:12px;color:#444;">备注</label>
+      <textarea id="fbComment" rows="2" placeholder="备注">试制通过，达到量产标准</textarea>
+                  <div class="step3-btn-row">
+                    <button type="button" onclick="submitFeedback()">提交检测反馈</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="step3-subpanel" data-imsub="3">
+                <div class="step3-form-stack" style="margin-top:0">
+                  <h3 style="margin-top:0">手动新增配方</h3>
+                  <div class="step3-metrics-grid">
+      <input id="manualFormulaId" value="f_manual_001" placeholder="配方ID，例如 f_manual_001" />
+      <input id="manualFormulaName" value="Manual Formula" placeholder="配方名称" />
+                  </div>
+      <input id="manualMeasurementId" value="m001" placeholder="关联测色ID，例如 m001" />
+                  <label for="manualPigments" style="margin:0;font-size:12px;color:#444;">颜料 JSON</label>
+      <textarea id="manualPigments" rows="5" placeholder="颜料JSON">{ "base_blue": 0.62, "base_red": 0.08, "base_green": 0.05, "al_silver": 0.12, "pearl": 0.03 }</textarea>
+                  <div class="step3-btn-row">
+                    <button type="button" onclick="createFormulaManually()">手动新增配方</button>
+                  </div>
+                  <h3 class="step3-subheading">上传 Excel 一键导入 MySQL</h3>
+                  <div class="muted" style="font-size:12px;line-height:1.35;margin:0;">支持工作表：measurements、formulas、feedbacks（首行为字段名）</div>
+      <input id="importExcelInput" type="file" accept=".xlsx" />
+                  <div class="step3-btn-row">
+                    <button type="button" onclick="importExcelDataset()">导入 Excel 数据集</button>
+    </div>
+                </div>
+              </div>
+
+              <div class="step3-nav-footer step3-nav-footer--between">
+                <button type="button" class="step3-sub-arrow" onclick="showLoginPanel()">← 返回登录</button>
+                <button type="button" class="step3-sub-arrow" onclick="setWizardStep(2)">流行色偏好 →</button>
+              </div>
+            </div>
+            <div class="step-card step3-quick-card">
+      <h3>快速执行</h3>
+              <p class="muted" style="font-size:12px;line-height:1.35;margin:0 0 10px;">调色 / 渲染 将使用「配色管理」步骤中选中的配方（未选时默认 f001）。</p>
+              <div class="step3-quick-actions">
+                <button type="button" onclick="seedData()">写入示例数据</button>
+                <button type="button" onclick="resetDemoData()">重置并重灌示例数据</button>
+                <button type="button" onclick="loadSummary()">查看数据概览</button>
+                <button type="button" onclick="runMatch()">智能匹配</button>
+                <button type="button" onclick="runTune()">智能调色</button>
+                <button type="button" onclick="runGenerate()">智能生成</button>
+                <button type="button" onclick="runRender()">渲染预览</button>
+                <button type="button" onclick="listFormulas()">查看配方库</button>
+                <button type="button" onclick="listFeedbacks()">查看反馈记录</button>
+                <button type="button" onclick="showRgbKnowledge()">三原色映射说明</button>
+                <button type="button" onclick="modelStatus()">模型状态</button>
+                <button type="button" onclick="trainModel()">训练模型</button>
+                <button type="button" onclick="exportExcel()">导出 Excel</button>
+                <button type="button" onclick="exportPdf()">导出 PDF</button>
+    </div>
+  </div>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="2" id="wizard-step-2">
+          <div class="wizard-step-title">步骤 2 / 4 — 流行色颜色偏好</div>
+          <div class="step3-grid">
+            <div class="step-card">
+              <h3>流行色颜色偏好</h3>
+              <div class="step3-form-stack">
+                <div class="step3-btn-row">
+                  <button type="button" id="btnTrendStatus">检查数据集与模型</button>
+                  <button type="button" id="btnTrendTrain">训练流行色模型</button>
+                </div>
+                <div class="step3-rgb-row">
+                  <label class="step3-rgb-cell"><span class="step3-field-label">R</span><input id="trendR" type="number" min="0" max="255" value="220" /></label>
+                  <label class="step3-rgb-cell"><span class="step3-field-label">G</span><input id="trendG" type="number" min="0" max="255" value="200" /></label>
+                  <label class="step3-rgb-cell"><span class="step3-field-label">B</span><input id="trendB" type="number" min="0" max="255" value="180" /></label>
+                </div>
+                <p class="muted" style="font-size:11px;line-height:1.35;margin:0;">在顶栏「图像检测」中完成「图片提取颜色」或「图片自动推荐配方」后，会自动把识别 RGB 写入下方三栏；也可手动改数或点「用上次图像识别 RGB 填入」。</p>
+                <div class="step3-btn-row">
+                  <button type="button" id="btnTrendFillRgb">用上次图像识别 RGB 填入</button>
+                </div>
+                <div class="step3-btn-row">
+                  <button type="button" id="btnTrendMatchRgb">按 RGB 匹配流行色</button>
+                  <button type="button" id="btnTrendMatchM">按内置测色基准匹配</button>
+                </div>
+                <div class="step3-btn-row">
+                  <button type="button" id="btnTrendForecastRgb">按 RGB 展望未来流行色（2 年）</button>
+                  <button type="button" id="btnTrendForecastM">按测色展望未来流行色（2 年）</button>
+                </div>
+                <div id="trendModuleHint" class="step3-hint-box muted"></div>
+                <div class="step3-nav-footer step3-nav-footer--between">
+                  <button type="button" class="step3-sub-arrow" onclick="setWizardStep(1)">← 上一页：图像与算法</button>
+                  <button type="button" class="step3-sub-arrow" onclick="setWizardStep(3)">下一页：配色管理（配方库）→</button>
+                </div>
+              </div>
+            </div>
+            <div class="step-card step3-quick-card">
+              <h3>快速执行</h3>
+              <p class="muted" style="font-size:12px;line-height:1.35;margin:0 0 10px;">调色 / 渲染 将使用「配色管理」步骤中选中的配方（未选时默认 f001）。</p>
+              <div class="step3-quick-actions">
+                <button type="button" onclick="seedData()">写入示例数据</button>
+                <button type="button" onclick="resetDemoData()">重置并重灌示例数据</button>
+                <button type="button" onclick="loadSummary()">查看数据概览</button>
+                <button type="button" onclick="runMatch()">智能匹配</button>
+                <button type="button" onclick="runTune()">智能调色</button>
+                <button type="button" onclick="runGenerate()">智能生成</button>
+                <button type="button" onclick="runRender()">渲染预览</button>
+                <button type="button" onclick="listFormulas()">查看配方库</button>
+                <button type="button" onclick="listFeedbacks()">查看反馈记录</button>
+                <button type="button" onclick="showRgbKnowledge()">三原色映射说明</button>
+                <button type="button" onclick="modelStatus()">模型状态</button>
+                <button type="button" onclick="trainModel()">训练模型</button>
+                <button type="button" onclick="exportExcel()">导出 Excel</button>
+                <button type="button" onclick="exportPdf()">导出 PDF</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="3" id="wizard-step-3">
+          <div class="wizard-step-title">步骤 3 / 4 — 选择目标颜色（配方库）</div>
+          <p class="muted" style="margin:8px 0;">列表中 L*a*b* 由配方颜料估算（sRGB→CIE Lab，D65），用于界面展示；测色仪实测 Lab 可在后续版本对接。</p>
+          <div class="target-toolbar">
+            <button type="button" onclick="refreshTargetColorTable()">刷新配方库</button>
+            <input type="text" id="targetSearchInput" placeholder="关键词（名称 / ID）" />
+            <button type="button" onclick="renderTargetColorTable()">搜索</button>
+            <button type="button" onclick="document.getElementById('targetSearchInput').value=''; renderTargetColorTable();">重置</button>
+          </div>
+          <div class="split-target">
+            <div class="table-pane">
+              <table class="data-grid">
+                <thead>
+                  <tr>
+                    <th style="width:36px"></th>
+                    <th style="width:44px">色块</th>
+                    <th>颜色名称</th>
+                    <th>关联测色</th>
+                    <th style="width:72px">L*</th>
+                    <th style="width:72px">a*</th>
+                    <th style="width:72px">b*</th>
+                  </tr>
+                </thead>
+                <tbody id="targetColorTableBody">
+                  <tr><td colspan="7" class="muted">进入本步后自动加载，或点击「刷新配方库」。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="4" id="wizard-step-4">
+          <div class="wizard-step-title">步骤 4 / 4 — 结果与原始输出</div>
+          <h3 style="margin:10px 0 6px;">可视化结果</h3>
+  <div id="viz" class="card">
+    <div class="muted">暂无结果，先运行一次图像识别或算法。</div>
+  </div>
+          <h3 style="margin:14px 0 6px;">输出</h3>
+  <pre id="out"></pre>
+        </section>
+
+      </div>
+    </main>
+
+    <footer class="wizard-footer">
+      <button type="button" class="footer-reset" id="btnWizardReset" onclick="wizardReset()">重置</button>
+      <div class="progress-block">
+        <div class="progress-track"><div class="progress-fill" id="wizardProgressFill"></div></div>
+        <span class="progress-label" id="wizardProgressLabel">未登录</span>
+        <span class="footer-hint muted" style="font-size:11px;">操作成功后将自动进入结果页</span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    let token = "";
+    let lastResult = null;
+    let lastResultType = "generic";
+    let lastRecognizedRgb = null;
+    const out = document.getElementById("out");
+    const viz = document.getElementById("viz");
+    const tokenShow = document.getElementById("tokenShow");
+    const apiBaseInput = document.getElementById("apiBase");
+    const apiStatus = document.getElementById("apiStatus");
+    const apiStatusDot = document.getElementById("apiStatusDot");
+    let apiBase = "";
+    let apiOnline = false;
+    let apiCheckTimer = null;
+    const TOTAL_WIZARD_STEPS = 4;
+    let currentWizardStep = 0;
+    let allFormulasCache = [];
+    window.selectedFormulaId = "f001";
+
+    const SEVEN_PIGMENT_ORDER = [
+      ["base_white", "白母"],
+      ["base_black", "黑母"],
+      ["base_red", "红母"],
+      ["base_green", "绿母"],
+      ["base_blue", "蓝母"],
+      ["al_silver", "银粉"],
+      ["pearl", "珠光粉"],
+    ];
+
+    function formatSevenPigmentTable(pigments) {
+      const p = pigments || {};
+      const rows = SEVEN_PIGMENT_ORDER.map(([key, zh]) => {
+        const raw = p[key];
+        const cell = raw != null && raw !== "" && !Number.isNaN(Number(raw))
+          ? Number(raw).toFixed(4)
+          : "—";
+        return `<tr><td>${escapeHtml(zh)}</td><td><code>${escapeHtml(key)}</code></td><td>${cell}</td></tr>`;
+      }).join("");
+      return `<table><tr><th>组分</th><th>键名</th><th>相对量</th></tr>${rows}</table>`;
+    }
+
+    function formatSevenPigmentRangeRows(pigmentsRange) {
+      const r = pigmentsRange || {};
+      return SEVEN_PIGMENT_ORDER.map(([key, zh]) => {
+        const row = r[key];
+        if (!row) {
+          return `<tr><td>${escapeHtml(zh)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+        }
+        return `<tr><td>${escapeHtml(zh)}</td><td>${Number(row.lower || 0).toFixed(4)}</td><td>${Number(row.mid || 0).toFixed(4)}</td><td>${Number(row.upper || 0).toFixed(4)}</td></tr>`;
+      }).join("");
+    }
+
+    function formatExtendedFormulaSections(generated) {
+      const g = generated || {};
+      const fillers = g.fillers || [];
+      const fillerRows = fillers.length
+        ? fillers.map((f) => `<tr><td>${escapeHtml(f.name || "")}</td><td>${f.content_pct != null ? Number(f.content_pct).toFixed(2) + "%" : "—"}</td></tr>`).join("")
+        : `<tr><td colspan="2" class="muted">暂无数据（待接入配方 / 测试库后由后端填充）</td></tr>`;
+      const mb = g.masterbatch_ratio_pct || {};
+      const mbKeys = Object.keys(mb);
+      const mbRows = mbKeys.length
+        ? mbKeys.map((k) => {
+            const zh = (SEVEN_PIGMENT_ORDER.find((x) => x[0] === k) || [k, k])[1];
+            return `<tr><td>${escapeHtml(zh)}</td><td>${Number(mb[k]).toFixed(2)}%</td></tr>`;
+          }).join("")
+        : `<tr><td colspan="2" class="muted">暂无数据（待接入配方 / 测试库后由后端填充）</td></tr>`;
+      const base = g.base_material_formula_pct || {};
+      const baseKeys = Object.keys(base);
+      const baseRows = baseKeys.length
+        ? baseKeys.map((k) => `<tr><td>${escapeHtml(k)}</td><td>${Number(base[k]).toFixed(2)}%</td></tr>`).join("")
+        : `<tr><td colspan="2" class="muted">暂无数据（待接入配方 / 测试库后由后端填充）</td></tr>`;
+      return `
+        <div class="card" style="margin-top:10px">
+          <div><b>填料（种类及含量）</b></div>
+          <table><tr><th>种类</th><th>含量</th></tr>${fillerRows}</table>
+        </div>
+        <div class="card" style="margin-top:10px">
+          <div><b>母色添加配比</b>（七支色母在色浆中的占比）</div>
+          <table><tr><th>色母</th><th>占比</th></tr>${mbRows}</table>
+        </div>
+        <div class="card" style="margin-top:10px">
+          <div><b>基料配方</b></div>
+          <table><tr><th>组分</th><th>配比</th></tr>${baseRows}</table>
+        </div>`;
+    }
+
+    function pigmentsToRgb(pigments) {
+      if (!pigments || typeof pigments !== "object") return { r: 200, g: 200, b: 200 };
+      let r = 0, g = 0, b = 0, t = 0;
+      const add = (key, rr, gg, bb) => {
+        const w = Number(pigments[key] || 0);
+        if (w <= 0) return;
+        r += w * rr; g += w * gg; b += w * bb; t += w;
+      };
+      add("base_red", 0.92, 0.18, 0.18);
+      add("base_green", 0.25, 0.88, 0.28);
+      add("base_blue", 0.22, 0.38, 0.95);
+      add("base_white", 0.96, 0.96, 0.96);
+      add("base_black", 0.1, 0.1, 0.1);
+      add("al_silver", 0.88, 0.88, 0.9);
+      add("pearl", 0.94, 0.92, 0.88);
+      for (const [k, v] of Object.entries(pigments)) {
+        if (["base_red","base_green","base_blue","base_white","base_black","al_silver","pearl"].includes(k)) continue;
+        const w = Number(v) || 0;
+        if (w <= 0) continue;
+        t += w;
+        r += 0.55 * w; g += 0.55 * w; b += 0.55 * w;
+      }
+      if (t < 1e-9) return { r: 200, g: 200, b: 200 };
+      const R = Math.round(Math.min(255, Math.max(0, (r / t) * 255)));
+      const G = Math.round(Math.min(255, Math.max(0, (g / t) * 255)));
+      const B = Math.round(Math.min(255, Math.max(0, (b / t) * 255)));
+      return { r: R, g: G, b: B };
+    }
+
+    function rgbToLab255(r, g, b) {
+      const lin = (c) => {
+        c = c / 255;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      };
+      const R = lin(r), G = lin(g), B = lin(b);
+      let X = R * 0.4124564 + G * 0.3575761 + B * 0.1804375;
+      let Y = R * 0.2126729 + G * 0.7151522 + B * 0.072175;
+      let Z = R * 0.0193339 + G * 0.119192 + B * 0.9503041;
+      X /= 0.95047; Y /= 1.0; Z /= 1.08883;
+      const f = (t) => (t > 0.008856 ? Math.cbrt(t) : (7.787 * t + 16 / 116));
+      const fx = f(X), fy = f(Y), fz = f(Z);
+      const L = 116 * fy - 16;
+      const a = 500 * (fx - fy);
+      const b2 = 200 * (fy - fz);
+      return { L, a, b: b2 };
+    }
+
+    const IMAGE_ALGO_SUB_MAX = 3;
+    let imageAlgoSubIndex = 0;
+
+    function setImageAlgoSub(n) {
+      n = Math.max(0, Math.min(IMAGE_ALGO_SUB_MAX, n));
+      imageAlgoSubIndex = n;
+      const root = document.getElementById("wizard-step-1");
+      if (!root) return;
+      root.querySelectorAll(".step3-subpanel[data-imsub]").forEach((el) => {
+        const si = Number(el.getAttribute("data-imsub"));
+        el.classList.toggle("active", si === n);
+      });
+      root.querySelectorAll(".step3-tab[data-imsub]").forEach((btn) => {
+        const si = Number(btn.getAttribute("data-imsub"));
+        btn.classList.toggle("active", si === n);
+      });
+      const p = document.getElementById("imageAlgoSubPrev");
+      const nx = document.getElementById("imageAlgoSubNext");
+      if (p) p.disabled = n <= 0;
+      if (nx) nx.disabled = n >= IMAGE_ALGO_SUB_MAX;
+    }
+
+    function imageAlgoSubPrev() {
+      setImageAlgoSub(imageAlgoSubIndex - 1);
+    }
+
+    function imageAlgoSubNext() {
+      setImageAlgoSub(imageAlgoSubIndex + 1);
+    }
+
+    function showLoginPanel() {
+      token = "";
+      if (tokenShow) tokenShow.textContent = "";
+      currentWizardStep = 0;
+      document.getElementById("wizard-login-panel")?.classList.add("active");
+      document.querySelectorAll(".wizard-step").forEach((el) => el.classList.remove("active"));
+      const fill = document.getElementById("wizardProgressFill");
+      const label = document.getElementById("wizardProgressLabel");
+      if (fill) fill.style.width = "0%";
+      if (label) label.textContent = "未登录";
+    }
+
+    function setWizardStep(n) {
+      n = Math.max(1, Math.min(TOTAL_WIZARD_STEPS, n));
+      const prevMain = currentWizardStep;
+      currentWizardStep = n;
+      document.getElementById("wizard-login-panel")?.classList.remove("active");
+      document.querySelectorAll(".wizard-step").forEach((el) => {
+        const step = Number(el.getAttribute("data-step"));
+        el.classList.toggle("active", step === n);
+      });
+      const fill = document.getElementById("wizardProgressFill");
+      const label = document.getElementById("wizardProgressLabel");
+      if (fill) fill.style.width = `${(n / TOTAL_WIZARD_STEPS) * 100}%`;
+      if (label) label.textContent = `${n} / ${TOTAL_WIZARD_STEPS}`;
+      if (n === 3) refreshTargetColorTable();
+      if (n === 1) {
+        if (prevMain !== 1) setImageAlgoSub(0);
+        else setImageAlgoSub(imageAlgoSubIndex);
+      }
+    }
+
+    function goToResultsStep() {
+      setWizardStep(4);
+    }
+
+    function wizardReset() {
+      document.getElementById("targetSearchInput").value = "";
+      setImageAlgoSub(0);
+      showLoginPanel();
+    }
+
+    function getSelectedFormulaId() {
+      return window.selectedFormulaId || "f001";
+    }
+
+    function syncFeedbackFormulaField() {
+      const el = document.getElementById("fbFormulaId");
+      if (el) el.value = getSelectedFormulaId();
+    }
+
+    async function refreshTargetColorTable() {
+      const tbody = document.getElementById("targetColorTableBody");
+      if (!tbody) return;
+      if (!token) {
+        tbody.innerHTML = "<tr><td colspan='7' class='muted'>请先登录后再加载配方库。</td></tr>";
+        return;
+      }
+      try {
+        const rows = await call("/formulas");
+        allFormulasCache = Array.isArray(rows) ? rows : [];
+        renderTargetColorTable();
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan='7'>${escapeHtml(e.message || String(e))}</td></tr>`;
+      }
+    }
+
+    function renderTargetColorTable() {
+      const tbody = document.getElementById("targetColorTableBody");
+      if (!tbody) return;
+      const q = (document.getElementById("targetSearchInput")?.value || "").trim().toLowerCase();
+
+      const rows = (allFormulasCache || []).filter((f) => {
+        if (!q) return true;
+        const id = String(f.id || "").toLowerCase();
+        const nm = String(f.name || "").toLowerCase();
+        return id.includes(q) || nm.includes(q);
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = "<tr><td colspan='7' class='muted'>无配方或未匹配搜索关键词。</td></tr>";
+        return;
+      }
+
+      const selected = getSelectedFormulaId();
+      tbody.innerHTML = rows.map((f, idx) => {
+        const rgb = pigmentsToRgb(f.pigments || {});
+        const lab = rgbToLab255(rgb.r, rgb.g, rgb.b);
+        const bg = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+        const sid = escapeHtml(f.id || "");
+        const checked = (f.id === selected) ? " checked" : "";
+        return `
+          <tr>
+            <td><input type="radio" name="pickFormula" value="${sid}"${checked} onchange="window.selectedFormulaId=this.value; syncFeedbackFormulaField(); setWizardStep(1);" /></td>
+            <td><span class="swatch-cell" style="background:${bg}" title="估算 RGB"></span></td>
+            <td>${escapeHtml(f.name || "")}</td>
+            <td>${escapeHtml(f.linked_measurement_id || "")}</td>
+            <td>${lab.L.toFixed(2)}</td>
+            <td>${lab.a.toFixed(2)}</td>
+            <td>${lab.b.toFixed(2)}</td>
+          </tr>`;
+      }).join("");
+
+      const still = rows.some((f) => f.id === selected);
+      if (!still && rows[0]) {
+        window.selectedFormulaId = rows[0].id;
+        renderTargetColorTable();
+        return;
+      }
+      syncFeedbackFormulaField();
+    }
+
+    const baseMeasurement = {
+      id: "m001",
+      car_model: "Model-X",
+      color_code: "PX-100",
+      angles: {
+        "15": [{ wavelength: 400, value: 0.3 }, { wavelength: 500, value: 0.4 }, { wavelength: 600, value: 0.2 }],
+        "45": [{ wavelength: 400, value: 0.35 }, { wavelength: 500, value: 0.45 }, { wavelength: 600, value: 0.25 }],
+        "110": [{ wavelength: 400, value: 0.4 }, { wavelength: 500, value: 0.3 }, { wavelength: 600, value: 0.2 }]
+      },
+      texture: { flake_intensity: 0.6, sparkle: 0.4, grain: 0.3 }
+    };
+
+    function buildUrl(path) {
+      if (!apiBase) return path;
+      return `${apiBase}${path}`;
+    }
+
+    async function call(url, method = "GET", body = null) {
+      if (!apiOnline) {
+        throw new Error("后端不可达，请先检查后端 API 地址并点击“保存后端地址”");
+      }
+      const res = await fetch(buildUrl(url), {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-token": token } : {})
+        },
+        body: body ? JSON.stringify(body) : null
+      });
+      const rawText = await res.text();
+      if (res.status === 404) {
+        const full = buildUrl(url);
+        let extra = "";
+        if (String(url).includes("/trends/forecast")) {
+          extra =
+            " 「展望未来流行色」需要后端注册 POST /trends/forecast。请访问 GET /health，确认 " +
+            "app_version 为 0.2.1+trends-forecast 且 post_trends_forecast_loaded 为 true；否则说明进程仍是旧代码，需结束旧 uvicorn 后在项目根目录重新启动。";
+        }
+        throw new Error(
+          `接口不存在(404)：${full}。请在项目根目录重启后端：uvicorn app.main:app --reload --port 8000；` +
+            "并打开 http://127.0.0.1:8000/docs 搜索「forecast」或查看 GET /health 的 trends_routes_loaded。API 地址勿填成 …/static 或其它子路径。" +
+            extra
+        );
+      }
+      let data = {};
+      if (rawText.trim()) {
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error(rawText.slice(0, 280) || `HTTP ${res.status}`);
+        }
+      }
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error("登录状态无效或账号密码错误，请重新登录");
+        }
+        const detail = data && (data.detail ?? data.message);
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(data));
+      }
+      return data;
+    }
+
+    async function login() {
+      try {
+        const data = await call("/auth/login", "POST", {
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value
+        });
+        token = data.token;
+        tokenShow.textContent = token;
+        showRaw(data);
+        setWizardStep(1);
+        await loadSummary({ skipResultStep: true });
+      } catch (e) { showError(e); }
+    }
+
+    async function seedData() {
+      try {
+        await call("/measurements", "POST", baseMeasurement);
+        await call("/formulas", "POST", {
+          id: "f001",
+          name: "Metal Blue Base",
+          pigments: { base_white: 0.2, base_black: 0.1, al_silver: 0.18, pearl: 0.06 },
+          linked_measurement_id: "m001"
+        });
+        showRaw({ message: "示例数据写入完成" });
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function runMatch() {
+      try {
+        const data = await call("/algorithms/match", "POST", { measurement: baseMeasurement, top_k: 3 });
+        showRaw(data);
+        renderMatchTable(data, "智能匹配结果");
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function runTune() {
+      try {
+        const data = await call("/algorithms/tune", "POST", { target_measurement: baseMeasurement, base_formula_id: getSelectedFormulaId() });
+        showRaw(data);
+        renderTune(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function runGenerate() {
+      try {
+        const rangeRatio = Number(document.getElementById("rangeRatio").value || 0.1);
+        const data = await call("/algorithms/generate", "POST", { measurement: baseMeasurement, range_ratio: rangeRatio });
+        showRaw(data);
+        renderGenerate(data, "智能生成配方");
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function runRender() {
+      try {
+        const data = await call("/algorithms/render", "POST", { formula_id: getSelectedFormulaId(), view_angle: 45 });
+        showRaw(data);
+        renderRenderPreview(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function loadSummary(opts = {}) {
+      try {
+        const data = await call("/dashboard/summary");
+        showRaw(data);
+        renderSummary(data);
+        if (!opts.skipResultStep) {
+          goToResultsStep();
+        }
+      } catch (e) { showError(e); }
+    }
+
+    async function resetDemoData() {
+      try {
+        const data = await call("/admin/reset-demo", "POST");
+        showRaw(data);
+        await loadSummary();
+      } catch (e) { showError(e); }
+    }
+
+    function appendVisionRoi(fd) {
+      const gl = (id, def) => {
+        const el = document.getElementById(id);
+        const v = el ? Number(el.value) : def;
+        return Number.isFinite(v) ? v : def;
+      };
+      fd.append("roi_left", String(gl("visionRoiLeft", 0)));
+      fd.append("roi_top", String(gl("visionRoiTop", 0)));
+      fd.append("roi_width", String(gl("visionRoiWidth", 1)));
+      fd.append("roi_height", String(gl("visionRoiHeight", 1)));
+    }
+
+    async function uploadCall(url) {
+      const fileInput = document.getElementById("imageInput");
+      if (!fileInput.files.length) {
+        showError(new Error("请先选择图片文件"));
+        return;
+      }
+      const fd = new FormData();
+      fd.append("image", fileInput.files[0]);
+      fd.append("car_model", document.getElementById("carModel").value || "Unknown-Car");
+      fd.append("color_code", document.getElementById("colorCode").value || "AUTO");
+      fd.append("top_k", "3");
+      fd.append("range_ratio", String(Number(document.getElementById("rangeRatio").value || 0.1)));
+      appendVisionRoi(fd);
+      const res = await fetch(buildUrl(url), {
+        method: "POST",
+        headers: { ...(token ? { "x-token": token } : {}) },
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(JSON.stringify(data));
+      return data;
+    }
+
+    async function visionExtract() {
+      try {
+        const data = await uploadCall("/vision/extract");
+        showRaw(data);
+        renderVisionExtract(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function visionRecommend() {
+      try {
+        const data = await uploadCall("/vision/recommend");
+        showRaw(data);
+        renderVisionRecommend(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function compareMetrics() {
+      try {
+        const targetInput = document.getElementById("targetImageInput");
+        const predInput = document.getElementById("predImageInput");
+        if (!targetInput.files.length || !predInput.files.length) {
+          showError(new Error("请分别选择目标图和系统识别图"));
+          return;
+        }
+        const fd = new FormData();
+        fd.append("target_image", targetInput.files[0]);
+        fd.append("predicted_image", predInput.files[0]);
+        const res = await fetch(buildUrl("/metrics/compare"), {
+          method: "POST",
+          headers: { ...(token ? { "x-token": token } : {}) },
+          body: fd
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(JSON.stringify(data));
+        showRaw(data);
+        renderMetricsCompare(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function expertOrchestrate() {
+      try {
+        const rawInput = document.getElementById("expertInput").value || "";
+        const topK = Number(document.getElementById("expertTopK").value || 5);
+        const data = await call("/expert/orchestrate", "POST", { raw_input: rawInput, top_k: topK });
+        showRaw(data);
+        renderExpertOrchestration(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function modelStatus() {
+      try {
+        const data = await call("/expert/model-status");
+        showRaw(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function trainModel() {
+      try {
+        const data = await call("/expert/train", "POST", { min_samples: 1 });
+        showRaw(data);
+        viz.innerHTML = `
+          <h4>模型训练完成</h4>
+          <div>版本：<b>${escapeHtml(data.model_version || "-")}</b></div>
+          <div>样本数：${Number(data.sample_count || 0)}</div>
+          <div>性能回归 R²：${Number(data.perf_r2 || 0).toFixed(4)}</div>
+          <div>性能回归 MAE：${Number(data.perf_mae || 0).toFixed(4)}</div>
+        `;
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function listFormulas() {
+      try {
+        const data = await call("/formulas");
+        showRaw(data);
+        renderFormulas(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function listFeedbacks() {
+      try {
+        const data = await call("/feedbacks");
+        showRaw(data);
+        renderFeedbackList(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function showRgbKnowledge() {
+      try {
+        const data = await call("/knowledge/rgb-primaries");
+        showRaw(data);
+        renderRgbKnowledge(data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function submitFeedback() {
+      try {
+        const acceptedText = String(document.getElementById("fbAccepted").value || "true").toLowerCase();
+        const accepted = acceptedText === "true" || acceptedText === "1" || acceptedText === "yes";
+        const body = {
+          formula_id: document.getElementById("fbFormulaId").value || "f001",
+          measured_performance: {
+            adhesion: Number(document.getElementById("fbAdhesion").value || 0),
+            gloss: Number(document.getElementById("fbGloss").value || 0),
+            impact: Number(document.getElementById("fbImpact").value || 0),
+            voc: Number(document.getElementById("fbVoc").value || 0)
+          },
+          accepted,
+          comment: document.getElementById("fbComment").value || ""
+        };
+        const data = await call("/expert/feedback", "POST", body);
+        showRaw(data);
+        renderFeedbackResult(body, data);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function createFormulaManually() {
+      try {
+        const formulaId = (document.getElementById("manualFormulaId").value || "").trim();
+        const formulaName = (document.getElementById("manualFormulaName").value || "").trim();
+        const measurementId = (document.getElementById("manualMeasurementId").value || "").trim();
+        const pigmentsText = (document.getElementById("manualPigments").value || "").trim();
+        if (!formulaId || !formulaName || !measurementId) {
+          showError(new Error("配方ID、配方名称、关联测色ID不能为空"));
+          return;
+        }
+        let pigments;
+        try {
+          pigments = JSON.parse(pigmentsText);
+        } catch {
+          showError(new Error("颜料JSON格式不正确，请检查大括号和逗号"));
+          return;
+        }
+        const body = {
+          id: formulaId,
+          name: formulaName,
+          pigments,
+          linked_measurement_id: measurementId
+        };
+        const data = await call("/formulas", "POST", body);
+        showRaw(data);
+        refreshTargetColorTable();
+        viz.innerHTML = `
+          <h4>手动新增配方成功</h4>
+          <div class="card">
+            <div><b>配方ID</b>：${escapeHtml(formulaId)}</div>
+            <div><b>配方名称</b>：${escapeHtml(formulaName)}</div>
+            <div><b>关联测色ID</b>：${escapeHtml(measurementId)}</div>
+            <div><b>颜料项数</b>：${Object.keys(pigments || {}).length}</div>
+          </div>
+        `;
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function importExcelDataset() {
+      try {
+        const input = document.getElementById("importExcelInput");
+        if (!input.files.length) {
+          showError(new Error("请先选择 .xlsx 文件"));
+          return;
+        }
+        const fd = new FormData();
+        fd.append("file", input.files[0]);
+        const res = await fetch(buildUrl("/import/excel"), {
+          method: "POST",
+          headers: { ...(token ? { "x-token": token } : {}) },
+          body: fd
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(JSON.stringify(data));
+        showRaw(data);
+        renderImportReport(data);
+        refreshTargetColorTable();
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    async function trendDatasetStatus() {
+      setTrendHint("正在请求数据集状态…");
+      try {
+        const data = await call("/trends/status");
+        showRaw(data);
+        viz.innerHTML = `
+          <h4>流行色数据集</h4>
+          <div class="card">
+            <div>路径：<b>${escapeHtml(data.data_root || "")}</b></div>
+            <div>CSV：${data.csv_exists ? "已找到" : "未找到"}（${escapeHtml(data.metadata_csv || "")}）</div>
+            <div>有效行数：<b>${data.row_count ?? 0}</b></div>
+            <div>年份：${escapeHtml(JSON.stringify(data.trend_years || []))}</div>
+            <div>模型已训练：<b>${data.model_ready ? "是" : "否"}</b></div>
+            ${data.error ? `<div class="muted">解析提示：${escapeHtml(data.error)}</div>` : ""}
+          </div>
+        `;
+        setTrendHint("已完成，已切换到下方「结果」页查看详情。");
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    async function trendTrainModel() {
+      setTrendHint("正在训练模型（可能需要十几秒）…");
+      try {
+        const data = await call("/trends/train", "POST", { min_rows: 16 });
+        showRaw(data);
+        viz.innerHTML = `
+          <h4>流行色模型训练完成</h4>
+          <div class="card">
+            <div>版本：<b>${escapeHtml(data.model_version || "")}</b></div>
+            <div>样本数：${Number(data.sample_count || 0)}</div>
+            <div>聚类数 K：${Number(data.n_clusters || 0)}</div>
+          </div>
+        `;
+        setTrendHint("训练完成。请先「检查数据集」确认 CSV 有数据，点匹配。");
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">训练失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    async function trendMatchRgb() {
+      setTrendHint("正在匹配…");
+      try {
+        const r = Number(document.getElementById("trendR").value);
+        const g = Number(document.getElementById("trendG").value);
+        const b = Number(document.getElementById("trendB").value);
+        const data = await call("/trends/match", "POST", { r, g, b, top_k: 8 });
+        showRaw(data);
+        renderTrendMatch(data);
+        setTrendHint("匹配完成，已切换到结果页。");
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">匹配失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    async function trendMatchMeasurement() {
+      setTrendHint("正在按测色数据匹配…");
+      try {
+        const data = await call("/trends/match", "POST", { measurement: baseMeasurement, top_k: 8 });
+        showRaw(data);
+        renderTrendMatch(data);
+        setTrendHint("匹配完成，已切换到结果页。");
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">匹配失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    async function trendForecastRgb() {
+      setTrendHint("正在根据趋势与提取色生成未来色展望…");
+      try {
+        const r = Number(document.getElementById("trendR").value);
+        const g = Number(document.getElementById("trendG").value);
+        const b = Number(document.getElementById("trendB").value);
+        const data = await call("/trends/forecast", "POST", {
+          r, g, b,
+          horizon_years: 2,
+          suggestions_per_horizon: 3,
+        });
+        showRaw(data);
+        renderTrendForecast(data);
+        setTrendHint("展望完成：以下为启发式候选色，供主动开发参考（非市场调研结论）。");
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">展望失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    async function trendForecastMeasurement() {
+      setTrendHint("正在根据趋势与测色生成未来色展望…");
+      try {
+        const data = await call("/trends/forecast", "POST", {
+          measurement: baseMeasurement,
+          horizon_years: 2,
+          suggestions_per_horizon: 3,
+        });
+        showRaw(data);
+        renderTrendForecast(data);
+        setTrendHint("展望完成：以下为启发式候选色，供主动开发参考。");
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">展望失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    async function generateFromForecastRgb(r, g, b, label) {
+      setTrendHint("正在由该展望色生成配方…");
+      try {
+        const rr = Math.max(0, Math.min(255, Math.round(Number(r))));
+        const gg = Math.max(0, Math.min(255, Math.round(Number(g))));
+        const bb = Math.max(0, Math.min(255, Math.round(Number(b))));
+        const data = await call("/algorithms/generate-from-rgb", "POST", {
+          r: rr,
+          g: gg,
+          b: bb,
+          range_ratio: 0.1,
+          car_model: "Trend-Forecast",
+          color_code: "FCST",
+          source_label: label || "",
+        });
+        showRaw(data);
+        lastRecognizedRgb = { r: rr, g: gg, b: bb };
+        const title = label
+          ? `智能生成配方（展望色：${label}）`
+          : `智能生成配方（展望色 RGB ${rr},${gg},${bb}）`;
+        renderGenerate(data, title);
+        setTrendHint("已根据该展望色生成配方，并已写入「流行色」RGB 三栏，便于继续匹配或调整。");
+        syncTrendRgbFromLastRecognized();
+        goToResultsStep();
+      } catch (e) {
+        setTrendHint(`<span style="color:#b71c1c">生成失败：${escapeHtml(e.message || String(e))}</span>`);
+        showError(e);
+      }
+    }
+
+    function renderTrendForecast(data) {
+      lastResultType = "trend_forecast";
+      const q = data.query_lab || {};
+      const sig = data.temporal_signal || "";
+      const sigZh = {
+        cluster_temporal_regression: "簇内按年份的 Lab 回归（优先）",
+        global_temporal: "全库按年份的 Lab 回归",
+        palette_evolution_heuristic: "沿趋势簇方向的演变启发式",
+      }[sig] || sig;
+      const rows = (data.forecasts || []).map((f) => {
+        const sw = `rgb(${Number(f.r)},${Number(f.g)},${Number(f.b)})`;
+        const labelEnc = encodeURIComponent(f.label || "");
+        return `<tr>
+          <td><span class="swatch-cell" style="background:${sw}"></span></td>
+          <td>${escapeHtml(f.label || "")}</td>
+          <td>${Number(f.forecast_calendar_year || 0)}</td>
+          <td>${escapeHtml(f.hex || "")}</td>
+          <td>${Number(f.lab_l).toFixed(2)} / ${Number(f.lab_a).toFixed(2)} / ${Number(f.lab_b).toFixed(2)}</td>
+          <td style="max-width:320px;font-size:12px">${escapeHtml(f.rationale || "")}</td>
+          <td><button type="button" class="btn-gen-from-forecast" data-r="${Number(f.r)}" data-g="${Number(f.g)}" data-b="${Number(f.b)}" data-label="${labelEnc}">生成配方</button></td>
+        </tr>`;
+      }).join("");
+      viz.innerHTML = `
+        <h4>未来流行色展望（主动开发参考）</h4>
+        <div class="card">
+          <div><b>说明</b>：结合您当前提取的 Lab 与已训练「流行色」聚类及 CSV 中的 <code>trend_year</code>，在色度空间做短期外推并生成多组候选色，便于提前布局色浆 / 色母方向。</div>
+          <div class="muted" style="margin-top:8px">${escapeHtml(data.methodology_note || "")}</div>
+        </div>
+        <div class="card">
+          <div>查询 Lab：L*=${Number(q.L).toFixed(2)}，a*=${Number(q.a).toFixed(2)}，b*=${Number(q.b).toFixed(2)}</div>
+          <div>KMeans 簇：<b>${Number(data.trend_cluster ?? 0)}</b>；锚点趋势年：<b>${Number(data.anchor_trend_year || 0)}</b></div>
+          <div>外推信号：<b>${escapeHtml(sigZh)}</b>（<code>${escapeHtml(sig)}</code>）</div>
+        </div>
+        <table class="data-grid">
+          <tr><th>色块</th><th>标签</th><th>展望年</th><th>Hex</th><th>Lab</th><th>简要依据</th><th>操作</th></tr>
+          ${rows || "<tr><td colspan='7'>无候选</td></tr>"}
+        </table>
+      `;
+    }
+
+    function renderTrendMatch(data) {
+      lastResultType = "trend_match";
+      const q = data.query_lab || {};
+      const rows = (data.neighbors || []).map((n) => {
+        const sw = `rgb(${Number(n.r)},${Number(n.g)},${Number(n.b)})`;
+        return `<tr>
+          <td><span class="swatch-cell" style="background:${sw}"></span></td>
+          <td>${escapeHtml(n.color_name || "")}</td>
+          <td>${escapeHtml(n.tcx_code || "")}</td>
+          <td>${escapeHtml(n.hex || "")}</td>
+          <td>${Number(n.trend_year || 0)}</td>
+          <td>${Number(n.lab_l).toFixed(2)} / ${Number(n.lab_a).toFixed(2)} / ${Number(n.lab_b).toFixed(2)}</td>
+          <td>${Number(n.distance).toFixed(4)}</td>
+        </tr>`;
+      }).join("");
+      viz.innerHTML = `
+        <h4>流行色匹配结果</h4>
+        <div class="card">
+          <div><b>偏好分</b>（0–100，越高越接近当季色卡）：<span style="font-size:20px;font-weight:bold">${Number(data.preference_score || 0).toFixed(2)}</span></div>
+          <div>查询 Lab：L*=${Number(q.L).toFixed(2)}，a*=${Number(q.a).toFixed(2)}，b*=${Number(q.b).toFixed(2)}；平均 ΔE(Lab 欧氏)：${Number(data.mean_delta_e_lab || 0).toFixed(2)}</div>
+          <div>KMeans 簇编号：<b>${Number(data.trend_cluster ?? 0)}</b>（训练时在 Lab 标准化空间聚类）</div>
+        </div>
+        <table class="data-grid">
+          <tr><th>色块</th><th>名称</th><th>TCX</th><th>Hex</th><th>年份</th><th>Lab</th><th>近邻距离(标准化空间)</th></tr>
+          ${rows || "<tr><td colspan='7'>无近邻</td></tr>"}
+        </table>
+      `;
+    }
+
+    function showRaw(data) {
+      lastResult = data;
+      out.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+    }
+
+    function showError(error) {
+      const msg = error?.message || String(error);
+      out.textContent = msg;
+      viz.innerHTML = `<div class="muted">发生错误：${escapeHtml(msg)}</div>`;
+      // 图像 / 流行色 / 配方步骤里 #viz / #out 在隐藏面板中，跳到结果页才能看见反馈
+      if (typeof currentWizardStep === "number" && currentWizardStep >= 1 && currentWizardStep <= 3) {
+        goToResultsStep();
+      }
+    }
+
+    function setTrendHint(html) {
+      const el = document.getElementById("trendModuleHint");
+      if (el) el.innerHTML = html || "";
+    }
+
+    function syncTrendRgbFromLastRecognized() {
+      if (!lastRecognizedRgb) return;
+      const clip = (x) => {
+        const n = Math.round(Number(x));
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(255, n));
+      };
+      const rEl = document.getElementById("trendR");
+      const gEl = document.getElementById("trendG");
+      const bEl = document.getElementById("trendB");
+      if (!rEl || !gEl || !bEl) return;
+      rEl.value = String(clip(lastRecognizedRgb.r));
+      gEl.value = String(clip(lastRecognizedRgb.g));
+      bEl.value = String(clip(lastRecognizedRgb.b));
+    }
+
+    function trendFillRgbFromRecognized() {
+      if (!lastRecognizedRgb) {
+        setTrendHint(`<span style="color:#b71c1c">请先在「图像检测」步骤中执行「图片提取颜色」或「图片自动推荐配方」。</span>`);
+        return;
+      }
+      syncTrendRgbFromLastRecognized();
+      const clip = (x) => {
+        const n = Math.round(Number(x));
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(255, n));
+      };
+      const r = clip(lastRecognizedRgb.r);
+      const g = clip(lastRecognizedRgb.g);
+      const b = clip(lastRecognizedRgb.b);
+      setTrendHint(`已填入最近一次图像识别 RGB：(${r}, ${g}, ${b})。可直接点「按 RGB 匹配流行色」。`);
+    }
+
+    function renderSummary(data) {
+      lastResultType = "summary";
+      viz.innerHTML = `
+        <h4>系统概览</h4>
+        <table>
+          <tr><th>测色数量</th><th>配方数量</th><th>日志数量</th></tr>
+          <tr><td>${data.measurement_count ?? "-"}</td><td>${data.formula_count ?? "-"}</td><td>${data.audit_count ?? "-"}</td></tr>
+        </table>
+      `;
+    }
+
+    function renderMatchTable(rows, title) {
+      lastResultType = "match";
+      const body = (rows || []).map(r => `
+        <tr>
+          <td>${escapeHtml(r.formula_id || "")}</td>
+          <td>${Number(r.score || 0).toFixed(4)}</td>
+          <td>${escapeHtml(r.reason || "")}</td>
+        </tr>
+      `).join("");
+      viz.innerHTML = `
+        <h4>${title}</h4>
+        <table>
+          <tr><th>配方ID</th><th>匹配分数</th><th>说明</th></tr>
+          ${body || "<tr><td colspan='3'>无结果</td></tr>"}
+        </table>
+      `;
+    }
+
+    function renderGenerate(data, title) {
+      lastResultType = "generate";
+      const sevenPigmentTable = formatSevenPigmentTable(data.pigments);
+      const extendedSections = formatExtendedFormulaSections(data);
+      const rangeRows = formatSevenPigmentRangeRows(data.pigments_range);
+      const limitColorCards = (data.limit_color_previews || []).map(x => {
+        const rgb = x.rgb || {};
+        return `
+          <div class="card">
+            <div><b>${escapeHtml(x.level || "-")}</b>：${escapeHtml(x.hex || "#000000")} / RGB(${Number(rgb.r || 0)}, ${Number(rgb.g || 0)}, ${Number(rgb.b || 0)})</div>
+            <div class="swatch" style="background:${escapeHtml(x.hex || "#000000")}"></div>
+          </div>
+        `;
+      }).join("");
+      const pr = data.reference_rgb;
+      const pl = data.reference_lab;
+      const refBlockGen = pr && typeof pr.r === "number" ? `
+        <div class="card" style="border:2px dashed #2e7d32;margin-bottom:10px">
+          <div><b>图像参考色</b>（与配方估算色对照）</div>
+          <div>RGB <b>(${Number(pr.r)}, ${Number(pr.g)}, ${Number(pr.b)})</b></div>
+          ${pl && pl.L != null ? `<div>Lab：L*=${pl.L}，a*=${pl.a}，b*=${pl.b}</div>` : ""}
+          <div class="swatch" style="background:rgb(${Number(pr.r)},${Number(pr.g)},${Number(pr.b)});max-width:280px;height:48px;margin-top:6px"></div>
+        </div>` : "";
+      const processRows = Object.entries(data.process_parameters || {}).map(([k, v]) => `
+        <tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>
+      `).join("");
+      const opAdviceRows = (data.operation_advice || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+      viz.innerHTML = `
+        <h4>${title}</h4>
+        <div>名称：<b>${escapeHtml(data.formula_name || "-")}</b></div>
+        <div>置信度：<b>${Number(data.confidence || 0).toFixed(4)}</b></div>
+        <div class="card">
+          <div><b>七支色母相对量</b></div>
+          ${sevenPigmentTable}
+          ${extendedSections}
+        </div>
+        <div class="card">
+          <div><b>配方操作区间（下限/中值/上限）</b></div>
+          <table>
+            <tr><th>颜料</th><th>下限</th><th>中值</th><th>上限</th></tr>
+            ${rangeRows || "<tr><td colspan='4'>无区间数据</td></tr>"}
+          </table>
+        </div>
+        <div class="card">
+          <div><b>区间对应预计颜色</b>（下限/中值/上限）</div>
+          ${refBlockGen}
+          ${limitColorCards || "<div class='muted'>无预计颜色数据</div>"}
+        </div>
+        <div class="card">
+          <div><b>建议工艺参数</b></div>
+          <table>
+            <tr><th>参数</th><th>建议值</th></tr>
+            ${processRows || "<tr><td colspan='2'>无工艺参数</td></tr>"}
+          </table>
+        </div>
+        <div class="card">
+          <div><b>操作建议</b></div>
+          <ul>${opAdviceRows || "<li>无操作建议</li>"}</ul>
+        </div>
+      `;
+    }
+
+    function renderTune(data) {
+      lastResultType = "tune";
+      const adjust = Object.entries(data.adjustment || {}).map(([k, v]) => `<li>${escapeHtml(k)}: ${v}</li>`).join("");
+      const advice = (data.advice || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+      viz.innerHTML = `
+        <h4>智能调色建议</h4>
+        <div>基准配方：<b>${escapeHtml(data.formula_id || "-")}</b></div>
+        <div class="card">
+          <div><b>增减量建议</b></div>
+          <ul>${adjust || "<li>无数据</li>"}</ul>
+        </div>
+        <div class="card">
+          <div><b>工艺建议</b></div>
+          <ul>${advice || "<li>无建议</li>"}</ul>
+        </div>
+      `;
+    }
+
+    function renderRenderPreview(data) {
+      lastResultType = "render";
+      viz.innerHTML = `
+        <h4>渲染预览</h4>
+        <div>配方ID：<b>${escapeHtml(data.formula_id || "-")}</b></div>
+        <div>预览颜色：${escapeHtml(data.rgb_hint || "#000000")}</div>
+        <div class="swatch" style="background:${escapeHtml(data.rgb_hint || "#000000")}"></div>
+        <div>粗糙度：${Number(data.roughness || 0).toFixed(4)}</div>
+        <div>颗粒强度：${Number(data.flake_intensity || 0).toFixed(4)}</div>
+      `;
+    }
+
+    function formatTextureFeatureHtml(tex) {
+      if (!tex || typeof tex !== "object") return "";
+      const fmt = (v) => {
+        const x = Number(v);
+        return Number.isFinite(x) ? x.toFixed(4) : "—";
+      };
+      const fi = fmt(tex.flake_intensity);
+      const sp = fmt(tex.sparkle);
+      const gr = fmt(tex.grain);
+      return `
+        <div class="card" style="margin:10px 0">
+          <div><b>纹理特征</b> <span class="muted" style="font-size:11px;font-weight:normal">（由图像 ROI 启发式估算，约 0～1；参与「智能匹配」等距离计算）</span></div>
+          <table class="data-grid" style="margin-top:8px;font-size:12px">
+            <tr><th>字段</th><th>数值</th><th>含义</th></tr>
+            <tr><td><code>flake_intensity</code></td><td><b>${fi}</b></td><td>肌理程度</td></tr>
+            <tr><td><code>sparkle</code></td><td><b>${sp}</b></td><td>亮度 / 闪烁相关</td></tr>
+            <tr><td><code>grain</code></td><td><b>${gr}</b></td><td>颗粒度</td></tr>
+          </table>
+        </div>`;
+    }
+
+    function formatAnglesSpectrumHtml(angles) {
+      if (!angles || typeof angles !== "object") return "";
+      const angleKeys = ["15", "45", "110"];
+      const waves = [400, 500, 600];
+      let any = false;
+      const thead = `<tr><th>观测角</th>${waves.map((w) => `<th>${w} nm</th>`).join("")}</tr>`;
+      const tbody = angleKeys
+        .map((ak) => {
+          const pts = Array.isArray(angles[ak]) ? angles[ak] : [];
+          const map = {};
+          for (const p of pts) {
+            const w = Number(p.wavelength);
+            const v = Number(p.value);
+            if (Number.isFinite(w) && Number.isFinite(v)) map[w] = v;
+          }
+          const cells = waves
+            .map((w) => {
+              const v = map[w];
+              if (Number.isFinite(v)) {
+                any = true;
+                return `<td>${v.toFixed(4)}</td>`;
+              }
+              return `<td>—</td>`;
+            })
+            .join("");
+          return `<tr><td><b>${escapeHtml(ak)}°</b></td>${cells}</tr>`;
+        })
+        .join("");
+      if (!any) return "";
+      return `
+        <div class="card" style="margin:10px 0">
+          <div><b>多角度光谱通道</b> <span class="muted" style="font-size:11px;font-weight:normal">（反射率约 0～1；参与「智能匹配」向量距离。图像提取时三角度当前为同一组简化值）</span></div>
+          <table class="data-grid" style="margin-top:8px;font-size:12px">
+            ${thead}
+            ${tbody}
+          </table>
+        </div>`;
+    }
+
+    function renderVisionExtract(data) {
+      lastResultType = "vision_extract";
+      const rgb = data.avg_rgb || {};
+      lastRecognizedRgb = { r: rgb.r || 0, g: rgb.g || 0, b: rgb.b || 0 };
+      const color = `rgb(${rgb.r || 0}, ${rgb.g || 0}, ${rgb.b || 0})`;
+      const lab = data.avg_lab || {};
+      const roi = data.roi || {};
+      const roiTxt = roi && typeof roi.left === "number"
+        ? `ROI：左 ${roi.left}、上 ${roi.top}、宽 ${roi.width}、高 ${roi.height}（相对整图）`
+        : "";
+      const specBlock = formatAnglesSpectrumHtml(data.measurement?.angles);
+      const texBlock = formatTextureFeatureHtml(data.measurement?.texture);
+      viz.innerHTML = `
+        <h4>图像颜色提取结果</h4>
+        <div>测色ID：<b>${escapeHtml(data.measurement?.id || "-")}</b></div>
+        <div>平均RGB：(${rgb.r ?? "-"}, ${rgb.g ?? "-"}, ${rgb.b ?? "-"})</div>
+        ${lab.L != null ? `<div>平均 Lab（D65）：L*=${lab.L}，a*=${lab.a}，b*=${lab.b}</div>` : ""}
+        ${roiTxt ? `<div class="muted">${escapeHtml(roiTxt)}</div>` : ""}
+        ${specBlock}
+        ${texBlock}
+        <div class="swatch" style="background:${color}"></div>
+        <div>${escapeHtml(data.suggestion || "")}</div>
+      `;
+      syncTrendRgbFromLastRecognized();
+      setTrendHint(`已从本次「图片提取颜色」自动写入「流行色颜色偏好」的 RGB（${rgb.r ?? "-"}, ${rgb.g ?? "-"}, ${rgb.b ?? "-"}）。可进入步骤 2 查看或点「按 RGB 匹配流行色」。`);
+    }
+
+    function renderVisionRecommend(data) {
+      lastResultType = "vision_recommend";
+      const m = data.measurement || {};
+      const avg = data.avg_rgb && typeof data.avg_rgb.r === "number"
+        ? { r: data.avg_rgb.r, g: data.avg_rgb.g, b: data.avg_rgb.b }
+        : null;
+      const p500 = m?.angles?.["45"]?.find(x => x.wavelength === 500)?.value ?? 0;
+      const recognizedRgb = avg || {
+        r: Math.round((m.angles?.["45"]?.[2]?.value || 0) * 255),
+        g: Math.round(p500 * 255),
+        b: Math.round((m.angles?.["45"]?.[0]?.value || 0) * 255)
+      };
+      lastRecognizedRgb = recognizedRgb;
+      const color = `rgb(${recognizedRgb.r}, ${recognizedRgb.g}, ${recognizedRgb.b})`;
+      renderMatchTable(data.match_results || [], "图像推荐 - 相似配方");
+      const current = viz.innerHTML;
+      const generated = data.generated_formula || {};
+      const sevenPigmentTableRec = formatSevenPigmentTable(generated.pigments);
+      const extendedSectionsRec = formatExtendedFormulaSections(generated);
+      const rangeRows = formatSevenPigmentRangeRows(generated.pigments_range);
+      const limitColorCards = (generated.limit_color_previews || []).map(x => {
+        const rgb = x.rgb || {};
+        return `
+          <div class="card">
+            <div><b>${escapeHtml(x.level || "-")}</b>：${escapeHtml(x.hex || "#000000")} / RGB(${Number(rgb.r || 0)}, ${Number(rgb.g || 0)}, ${Number(rgb.b || 0)})</div>
+            <div class="swatch" style="background:${escapeHtml(x.hex || "#000000")}"></div>
+          </div>
+        `;
+      }).join("");
+      const processRows = Object.entries(generated.process_parameters || {}).map(([k, v]) => `
+        <tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>
+      `).join("");
+      const opAdviceRows = (generated.operation_advice || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+      const hexAvg = [recognizedRgb.r, recognizedRgb.g, recognizedRgb.b]
+        .map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, "0"))
+        .join("");
+      const alab = data.avg_lab || {};
+      const roi = data.roi || {};
+      const roiLine = roi && typeof roi.left === "number"
+        ? `；ROI 左 ${roi.left} 上 ${roi.top} 宽 ${roi.width} 高 ${roi.height}`
+        : "";
+      const refRgb = generated.reference_rgb || recognizedRgb;
+      const refLab = generated.reference_lab || alab;
+      const refHex = [refRgb.r, refRgb.g, refRgb.b]
+        .map((x) => Math.max(0, Math.min(255, Number(x) || 0)).toString(16).padStart(2, "0"))
+        .join("");
+      const refColor = `rgb(${Number(refRgb.r)},${Number(refRgb.g)},${Number(refRgb.b)})`;
+      const refLabLine = refLab && refLab.L != null
+        ? `L*=${refLab.L}，a*=${refLab.a}，b*=${refLab.b}`
+        : "";
+      const refRowInLimits = `
+        <div class="card" style="border:2px dashed #2e7d32;margin-bottom:10px">
+          <div><b>图像参考色</b>（ROI/全图平均，与下方 lower/mid/upper 对照）</div>
+          <div>RGB <b>(${Number(refRgb.r)}, ${Number(refRgb.g)}, ${Number(refRgb.b)})</b>　#${refHex}</div>
+          ${refLabLine ? `<div>Lab（D65）${escapeHtml(refLabLine)}</div>` : ""}
+          <div class="swatch" style="background:${refColor};max-width:280px;height:48px;margin-top:6px"></div>
+        </div>`;
+      const specBlockRec = formatAnglesSpectrumHtml(m.angles);
+      const texBlockRec = formatTextureFeatureHtml(m.texture);
+      viz.innerHTML = `
+        <h4>图像识别综合结果</h4>
+        <div>测色ID：<b>${escapeHtml(m.id || "-")}</b>，车型：${escapeHtml(m.car_model || "-")}</div>
+        <div class="card" style="margin:8px 0">
+          <div><b>全图 / ROI 平均 RGB</b>：<b>(${recognizedRgb.r}, ${recognizedRgb.g}, ${recognizedRgb.b})</b>，约 #${hexAvg}${escapeHtml(roiLine)}</div>
+          ${alab.L != null ? `<div>平均 Lab：L*=${alab.L}，a*=${alab.a}，b*=${alab.b}</div>` : ""}
+          <div class="muted">下方色条即该平均色；「区间对应预计颜色」第一行为参考色，其后为配方估算色。</div>
+        </div>
+        ${specBlockRec}
+        ${texBlockRec}
+        <div class="swatch" style="background:${color}"></div>
+        ${current}
+        <div class="card">
+          <h4>自动生成配方</h4>
+          <div>名称：<b>${escapeHtml(generated.formula_name || "-")}</b>，置信度：${Number(generated.confidence || 0).toFixed(4)}</div>
+          <div><b>七支色母相对量</b></div>
+          ${sevenPigmentTableRec}
+          ${extendedSectionsRec}
+          <div><b>配方区间（下限/中值/上限）</b></div>
+          <table>
+            <tr><th>颜料</th><th>下限</th><th>中值</th><th>上限</th></tr>
+            ${rangeRows || "<tr><td colspan='4'>无区间数据</td></tr>"}
+          </table>
+          <div><b>区间对应预计颜色</b></div>
+          ${refRowInLimits}
+          ${limitColorCards || "<div class='muted'>无预计颜色数据</div>"}
+          <div><b>建议工艺参数</b></div>
+          <table>
+            <tr><th>参数</th><th>建议值</th></tr>
+            ${processRows || "<tr><td colspan='2'>无工艺参数</td></tr>"}
+          </table>
+          <div><b>操作建议</b></div>
+          <ul>${opAdviceRows || "<li>无操作建议</li>"}</ul>
+        </div>
+      `;
+      syncTrendRgbFromLastRecognized();
+      setTrendHint(`已从本次「图片自动推荐配方」自动写入「流行色颜色偏好」RGB（${recognizedRgb.r}, ${recognizedRgb.g}, ${recognizedRgb.b}）。可进入步骤 2 查看或点「按 RGB 匹配流行色」。`);
+    }
+
+    function renderMetricsCompare(data) {
+      lastResultType = "metrics_compare";
+      const trust = Number(data.trust_score || 0);
+      const trustColor = trust >= 85 ? "#2e7d32" : trust >= 70 ? "#f9a825" : "#c62828";
+      viz.innerHTML = `
+        <h4>颜色对比可信度评估</h4>
+        <div class="card">
+          <div>信任评分：<b style="color:${trustColor}; font-size:22px">${trust.toFixed(2)}</b> / 100</div>
+          <div>评级：<b>${escapeHtml(data.level || "-")}</b></div>
+        </div>
+        <table>
+          <tr><th>指标</th><th>值</th><th>说明</th></tr>
+          <tr><td>ΔE00</td><td>${Number(data.delta_e_00 || 0).toFixed(4)}</td><td>越小越好，通常 &lt;2 更接近</td></tr>
+          <tr><td>SSIM</td><td>${Number(data.ssim || 0).toFixed(4)}</td><td>越接近1越好</td></tr>
+          <tr><td>RGB RMSE</td><td>${Number(data.rgb_rmse || 0).toFixed(4)}</td><td>越小越好</td></tr>
+          <tr><td>RGB MAE</td><td>${Number(data.rgb_mae || 0).toFixed(4)}</td><td>越小越好</td></tr>
+        </table>
+      `;
+    }
+
+    function renderExpertOrchestration(data) {
+      lastResultType = "expert_orchestrate";
+      const parsed = data.parsed_requirement || {};
+      const recs = data.recommendations || [];
+      const topRows = recs.map((r, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(r.formula_id || "")}</td>
+          <td>${Number(r.priority_score || 0).toFixed(3)}</td>
+          <td>${r.pass_hard_constraints ? "是" : "否"}</td>
+          <td>附着:${Number(r.predicted_performance?.adhesion || 0).toFixed(2)} / 光泽:${Number(r.predicted_performance?.gloss || 0).toFixed(2)} / 冲击:${Number(r.predicted_performance?.impact || 0).toFixed(2)} / VOC:${Number(r.predicted_performance?.voc || 0).toFixed(2)}</td>
+        </tr>
+      `).join("");
+      const steps = (data.workflow_steps || []).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+      viz.innerHTML = `
+        <h4>AI配方专家编排结果</h4>
+        <div class="card">
+          <div><b>硬约束</b>：${escapeHtml(JSON.stringify(parsed.hard_constraints || {}))}</div>
+          <div><b>软约束</b>：${escapeHtml(JSON.stringify(parsed.soft_constraints || {}))}</div>
+        </div>
+        <table>
+          <tr><th>排名</th><th>配方</th><th>优先分</th><th>硬约束通过</th><th>性能预测</th></tr>
+          ${topRows || "<tr><td colspan='5'>无推荐结果</td></tr>"}
+        </table>
+        <div class="card">
+          <div><b>生成配方</b>：${escapeHtml(data.generated_formula?.formula_name || "-")}（置信度 ${Number(data.generated_formula?.confidence || 0).toFixed(3)}）</div>
+          <div><b>流程步骤</b></div>
+          <ul>${steps}</ul>
+        </div>
+      `;
+    }
+
+    function renderFeedbackResult(req, resp) {
+      lastResultType = "expert_feedback";
+      viz.innerHTML = `
+        <h4>检测结果已提交</h4>
+        <div class="card">
+          <div><b>配方ID</b>：${escapeHtml(req.formula_id)}</div>
+          <div><b>是否采用</b>：${req.accepted ? "是" : "否"}</div>
+          <div><b>附着力</b>：${Number(req.measured_performance.adhesion).toFixed(2)} 级（越高越好）</div>
+          <div><b>光泽</b>：${Number(req.measured_performance.gloss).toFixed(2)} GU（越高越好）</div>
+          <div><b>耐冲击</b>：${Number(req.measured_performance.impact).toFixed(2)} cm·kg（越高越好）</div>
+          <div><b>VOC</b>：${Number(req.measured_performance.voc).toFixed(2)} g/L（越低越好）</div>
+          <div><b>备注</b>：${escapeHtml(req.comment || "-")}</div>
+        </div>
+        <div class="card">
+          <div><b>系统反馈</b>：${escapeHtml(resp.status || "-")}</div>
+          <div><b>平均检测值</b>：${Number(resp.measured_avg || 0).toFixed(4)}</div>
+          <div><b>模型置信度变化</b>：${Number(resp.model_confidence_delta || 0).toFixed(4)}</div>
+        </div>
+      `;
+    }
+
+    function renderFormulas(rows) {
+      lastResultType = "formula_list";
+      const body = (rows || []).map(r => {
+        const pigments = Object.entries(r.pigments || {}).map(([k, v]) => `${k}:${v}`).join(", ");
+        return `<tr><td>${escapeHtml(r.id || "")}</td><td>${escapeHtml(r.name || "")}</td><td>${escapeHtml(r.linked_measurement_id || "")}</td><td>${escapeHtml(pigments)}</td></tr>`;
+      }).join("");
+      viz.innerHTML = `
+        <h4>当前配方库</h4>
+        <table>
+          <tr><th>配方ID</th><th>名称</th><th>关联测色ID</th><th>颜料配比</th></tr>
+          ${body || "<tr><td colspan='4'>暂无配方</td></tr>"}
+        </table>
+      `;
+    }
+
+    function renderFeedbackList(rows) {
+      lastResultType = "feedback_list";
+      const body = (rows || []).map(r => {
+        const p = r.measured_performance || {};
+        return `<tr>
+          <td>${r.id}</td>
+          <td>${escapeHtml(r.formula_id || "")}</td>
+          <td>${r.accepted ? "是" : "否"}</td>
+          <td>附着:${Number(p.adhesion || 0).toFixed(2)} / 光泽:${Number(p.gloss || 0).toFixed(2)} / 冲击:${Number(p.impact || 0).toFixed(2)} / VOC:${Number(p.voc || 0).toFixed(2)}</td>
+          <td>${escapeHtml(r.created_at || "")}</td>
+        </tr>`;
+      }).join("");
+      viz.innerHTML = `
+        <h4>检测反馈记录</h4>
+        <table>
+          <tr><th>ID</th><th>配方ID</th><th>采用</th><th>检测指标</th><th>时间</th></tr>
+          ${body || "<tr><td colspan='5'>暂无反馈记录</td></tr>"}
+        </table>
+      `;
+    }
+
+    function renderRgbKnowledge(data) {
+      lastResultType = "rgb_knowledge";
+      const m = data.optical_mapping || {};
+      const f = data.formula_mapping || {};
+      viz.innerHTML = `
+        <h4>光学三原色在系统中的体现</h4>
+        <table>
+          <tr><th>颜色</th><th>测色波段(45°)</th><th>配方色母字段</th></tr>
+          <tr><td>红(R)</td><td>${Number(m.red?.wavelength_nm || 600)}nm</td><td>${escapeHtml(f.red || "base_red")}</td></tr>
+          <tr><td>绿(G)</td><td>${Number(m.green?.wavelength_nm || 500)}nm</td><td>${escapeHtml(f.green || "base_green")}</td></tr>
+          <tr><td>蓝(B)</td><td>${Number(m.blue?.wavelength_nm || 400)}nm</td><td>${escapeHtml(f.blue || "base_blue")}</td></tr>
+        </table>
+        <div class="card">
+          <div><b>说明</b>：系统先从 45° 的 400/500/600nm 信号提取 B/G/R 强度，再在生成配方时映射到 base_blue/base_green/base_red。</div>
+        </div>
+      `;
+    }
+
+    function renderImportReport(data) {
+      lastResultType = "import_excel";
+      const s = data.success_count || {};
+      const failed = data.failed_rows || {};
+      const failureRows = []
+        .concat((failed.measurements || []).map(x => ({ type: "measurements", ...x })))
+        .concat((failed.formulas || []).map(x => ({ type: "formulas", ...x })))
+        .concat((failed.feedbacks || []).map(x => ({ type: "feedbacks", ...x })));
+      const body = failureRows.slice(0, 20).map(x => `
+        <tr>
+          <td>${escapeHtml(x.type)}</td>
+          <td>${x.row_number ?? "-"}</td>
+          <td>${escapeHtml(x.error || "")}</td>
+        </tr>
+      `).join("");
+      viz.innerHTML = `
+        <h4>Excel 导入报告</h4>
+        <div class="card">
+          <div><b>成功写入</b>：测色 ${Number(s.measurements || 0)} 条，配方 ${Number(s.formulas || 0)} 条，反馈 ${Number(s.feedbacks || 0)} 条</div>
+          <div><b>失败总数</b>：${Number(data.total_failed || 0)}</div>
+        </div>
+        <table>
+          <tr><th>数据集</th><th>行号</th><th>失败原因</th></tr>
+          ${body || "<tr><td colspan='3'>无失败行</td></tr>"}
+        </table>
+      `;
+    }
+
+    function escapeHtml(input) {
+      return String(input)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function downloadRecognizedImage() {
+      try {
+        if (!lastRecognizedRgb) {
+          showError(new Error("请先执行图片提取颜色或图片自动推荐配方"));
+          return;
+        }
+        const { r, g, b } = lastRecognizedRgb;
+        const canvas = document.createElement("canvas");
+        canvas.width = 600;
+        canvas.height = 360;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          showError(new Error("浏览器不支持Canvas"));
+          return;
+        }
+
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(0, canvas.height - 78, canvas.width, 78);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 28px Arial";
+        ctx.fillText("System Recognized Color", 18, canvas.height - 44);
+        ctx.font = "24px Arial";
+        ctx.fillText(`RGB(${r}, ${g}, ${b})`, 18, canvas.height - 14);
+
+        const a = document.createElement("a");
+        const ts = new Date().toISOString().replaceAll(":", "").replaceAll(".", "");
+        a.download = `recognized_color_${r}_${g}_${b}_${ts}.png`;
+        a.href = canvas.toDataURL("image/png");
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e) { showError(e); }
+    }
+
+    async function exportExcel() {
+      await exportReport("/export/excel", "xlsx");
+    }
+
+    async function exportPdf() {
+      await exportReport("/export/pdf", "pdf");
+    }
+
+    async function exportReport(url, ext) {
+      try {
+        if (!lastResult || typeof lastResult !== "object") {
+          showError(new Error("请先生成一条结果，再导出"));
+          return;
+        }
+        const reportName = `report_${new Date().toISOString().replaceAll(":", "").replaceAll(".", "")}`;
+        const res = await fetch(buildUrl(url), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "x-token": token } : {})
+          },
+          body: JSON.stringify({
+            report_name: reportName,
+            result_type: lastResultType,
+            payload: lastResult
+          })
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          throw new Error(err);
+        }
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${reportName}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+        goToResultsStep();
+      } catch (e) { showError(e); }
+    }
+
+    function saveApiBase() {
+      try {
+        const raw = String(apiBaseInput.value || "").trim();
+        apiBase = raw.replace(/\/+$/, "");
+        localStorage.setItem("apiBase", apiBase);
+        showRaw({ message: "后端地址已保存", api_base: apiBase || "(同源)" });
+        checkApiHealth();
+      } catch (e) { showError(e); }
+    }
+
+    async function checkApiHealth() {
+      apiStatus.textContent = "正在检测后端连通性...";
+      apiStatusDot.className = "status-dot warn";
+      try {
+        const res = await fetch(buildUrl("/health"), { method: "GET" });
+        const data = await res.json();
+        if (res.ok && data.status === "ok") {
+          apiOnline = true;
+          apiStatusDot.className = "status-dot online";
+          apiStatus.textContent = `后端在线：${apiBase || "(同源)"}；数据库连接：${data.db_connected ? "正常" : "异常"}`;
+          return;
+        }
+        apiOnline = false;
+        apiStatusDot.className = "status-dot offline";
+        apiStatus.textContent = `后端异常：${apiBase || "(同源)"}（health 返回非 ok）`;
+      } catch {
+        apiOnline = false;
+        apiStatusDot.className = "status-dot offline";
+        apiStatus.textContent = `后端不可达：${apiBase || "(同源)"}，请检查地址或后端服务是否启动`;
+      }
+    }
+
+    function startApiHeartbeat() {
+      if (apiCheckTimer) {
+        clearInterval(apiCheckTimer);
+      }
+      apiCheckTimer = setInterval(() => {
+        checkApiHealth();
+      }, 10000);
+    }
+
+    (function initApiBase() {
+      const saved = localStorage.getItem("apiBase") || "";
+      apiBase = saved.replace(/\/+$/, "");
+      apiBaseInput.value = apiBase;
+      checkApiHealth();
+      startApiHeartbeat();
+      showLoginPanel();
+      syncFeedbackFormulaField();
+    })();
+
+    (function bindTrendModuleButtons() {
+      const pairs = [
+        ["btnTrendStatus", trendDatasetStatus],
+        ["btnTrendTrain", trendTrainModel],
+        ["btnTrendFillRgb", trendFillRgbFromRecognized],
+        ["btnTrendMatchRgb", trendMatchRgb],
+        ["btnTrendMatchM", trendMatchMeasurement],
+        ["btnTrendForecastRgb", trendForecastRgb],
+        ["btnTrendForecastM", trendForecastMeasurement],
+      ];
+      for (const [id, fn] of pairs) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        el.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          void fn();
+        });
+      }
+    })();
+
+    (function bindVizForecastToGenerate() {
+      const v = document.getElementById("viz");
+      if (!v) return;
+      v.addEventListener("click", (ev) => {
+        const btn = ev.target && ev.target.closest && ev.target.closest("button.btn-gen-from-forecast");
+        if (!btn || !v.contains(btn)) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const r = Number(btn.getAttribute("data-r"));
+        const g = Number(btn.getAttribute("data-g"));
+        const b = Number(btn.getAttribute("data-b"));
+        const raw = btn.getAttribute("data-label") || "";
+        let label = "";
+        try {
+          label = decodeURIComponent(raw);
+        } catch (e) {
+          label = raw;
+        }
+        if (![r, g, b].every((x) => Number.isFinite(x) && x >= 0 && x <= 255)) return;
+        void generateFromForecastRgb(r, g, b, label);
+      });
+    })();
+  </script>
+</body>
+</html>

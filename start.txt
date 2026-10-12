@@ -1,0 +1,23 @@
+cd D:\color_size
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+
+
+看到 Uvicorn running on http://127.0.0.1:8000 后，不要关这个窗口。
+若 Activate.ps1 被策略拦截，可先执行：Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+浏览器访问
+http://127.0.0.1:8000/          系统界面（向导）
+http://127.0.0.1:8000/docs	API 文档
+http://127.0.0.1:8000/health	检查后端是否正常
+
+
+登录：admin / admin123
+页面里「后端 API 地址」留空即可（前后端在同一服务里）。
+
+
+
+
